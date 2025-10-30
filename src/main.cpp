@@ -1,84 +1,130 @@
-#include "ResHeaderParser.h"
-#include "ResASTJsonParser.h"
-#include "ResCppSrcGenerator.h"
-#include "ResObjGenerator.h"
-
 #include <iostream>
+#include <filesystem>
+#include <argparse/argparse.hpp>
+#include "ResBuildOrchestrator.h"
 
-int main()
+int main(int argc, char** argv)
 {
-    std::cout << "=== resman-lite: Test ===\n";
+    argparse::ArgumentParser program("resman-lite", "0.1");
 
-    // Step 1: Run clang++ AST export
-    resman::ResHeaderParser parser;
+    program.add_description("Cross-platform resource-to-object generator using LLVM + Clang cli tools.");
 
-    parser.setClangPath("clang++") // system clang++ in PATH
-          .setHeaderFile("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/resource_list.h")
-          .setOutputJson("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/resources_ast.json")
-          .addIncludePath("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/include")
-          .addDefine("TEST_BUILD=1");
+    program.add_argument("-r", "--res-header")
+        .help("Resource header file (Header file path containing resman::Resource<> declarations)")
+        .required();
 
-    std::cout << "Command line that will be run:\n"
-              << parser.getCommandLine() << "\n\n";
+    program.add_argument("-o", "--obj-name")
+        .help("Output object file name (e.g., resources.o or resources.obj)")
+        .required();
 
-    if (!parser.run()) {
-        std::cerr << "❌ Failed to generate AST JSON from header.\n";
+    program.add_argument("-I", "--include-path")
+        .help("Include paths (repeatable)")
+        .append();
+
+    program.add_argument("-R", "--res-path")
+        .help("Resource directories (repeatable)")
+        .append();
+
+    program.add_argument("-t", "--mtriple")
+        .help("Target triple (e.g., x86_64-pc-windows-msvc, x86_64-unknown-linux-gnu, aarch64-pc-windows-msvc etc. By default, the host triple is used)")
+        .default_value(std::string(""));
+
+    program.add_argument("-w", "--working-dir")
+        .help("Working directory (optional; if not provided, a temporary one is used)")
+        .default_value(std::string(""));
+
+    program.add_argument("--clang-path")
+        .help("Path to clang++ binary (optional, defaults to clang++ in PATH)")
+        .default_value(std::string("clang++"));
+
+    program.add_argument("--llvm-as-path")
+        .help("Path to llvm-as binary (optional, defaults to llvm-as in PATH)")
+        .default_value(std::string("llvm-as"));
+
+    program.add_argument("--llvm-link-path")
+        .help("Path to llvm-link binary (optional, defaults to llvm-link in PATH)")
+        .default_value(std::string("llvm-link"));
+
+    program.add_argument("--llc-path")
+        .help("Path to llc binary (optional, defaults to llc in PATH)")
+        .default_value(std::string("llc"));
+
+    try
+    {
+        program.parse_args(argc, argv);
+
+        if (program.get<bool>("--version"))
+        {
+            std::cout << "resman-lite version 0.1\n";
+            return 0;
+        }
+
+        resman::BuildOptions opts;
+        opts.resHeader = program.get<std::string>("--res-header");
+        opts.outputObj = program.get<std::string>("--obj-name");
+
+        if (program.is_used("--include-path"))
+            opts.includePaths = program.get<std::vector<std::string>>("--include-path");
+
+        if (program.is_used("--res-path"))
+            opts.resPaths = program.get<std::vector<std::string>>("--res-path");
+
+        opts.targetTriple = program.get<std::string>("--mtriple");
+
+        std::string workingDir = program.get<std::string>("--working-dir");
+        if (!workingDir.empty())
+            opts.workingDir = workingDir;
+
+        std::cout << "\nresman-lite configuration:\n";
+        std::cout << "  Header        : " << opts.resHeader << "\n";
+        std::cout << "  Output Object : " << opts.outputObj << "\n";
+        if (!opts.includePaths.empty())
+        {
+            std::cout << "  Include Paths :\n";
+            for (auto& p : opts.includePaths) std::cout << "    - " << p << "\n";
+        }
+        if (!opts.resPaths.empty())
+        {
+            std::cout << "  Resource Dirs :\n";
+            for (auto& p : opts.resPaths) std::cout << "    - " << p << "\n";
+        }
+        if (!opts.targetTriple.empty())
+            std::cout << "  Target Triple : " << opts.targetTriple << "\n";
+        if (opts.workingDir.has_value())
+            std::cout << "  Working Dir   : " << *opts.workingDir << "\n";
+        std::cout << std::endl;
+
+         // LLVM tool path arguments
+        program.add_argument("--clang-path")
+            .help("Path to clang++ binary (optional; defaults to clang++ in PATH)")
+            .default_value(std::string("clang++"));
+
+        program.add_argument("--llvm-as-path")
+            .help("Path to llvm-as binary (optional; defaults to llvm-as in PATH)")
+            .default_value(std::string("llvm-as"));
+
+        program.add_argument("--llvm-link-path")
+            .help("Path to llvm-link binary (optional; defaults to llvm-link in PATH)")
+            .default_value(std::string("llvm-link"));
+
+        program.add_argument("--llc-path")
+            .help("Path to llc binary (optional; defaults to llc in PATH)")
+            .default_value(std::string("llc"));
+
+        resman::ResBuildOrchestrator orch;
+        bool success = orch.setOptions(opts).run();
+
+        if (success)
+            std::cout << "Build completed successfully.\n";
+        else
+            std::cerr << "Build failed.\n";
+
+        return success ? 0 : 1;
+    }
+    catch (const std::exception& err)
+    {
+        std::cerr << "Error: " << err.what() << "\n\n";
+        std::cerr << program;
         return 1;
     }
-
-    std::cout << "✅ Successfully generated AST JSON.\n\n";
-
-    // Step 2: Parse the AST JSON
-    resman::ResASTJsonParser astParser;
-    astParser.setInputJson("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/resources_ast.json")
-             .setOutputJson("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/resources_info.json");
-
-    if (!astParser.run()) {
-        std::cerr << "❌ Failed to parse AST JSON.\n";
-        return 1;
-    }
-
-    std::cout << "✅ Successfully parsed resources from AST.\n";
-    std::cout << "Output written to: resources_info.json\n\n";
-
-    // Step 3: (Optional) Print summary
-    const auto& resources = astParser.getResources();
-    std::cout << "Extracted " << resources.size() << " resources:\n";
-    for (const auto& r : resources) {
-        std::cout << "  - VarName: " << r.resName
-                  << "\n    Type: " << r.resType
-                  << "\n    File: " << r.resFilepath << "\n\n";
-    }
-
-    // Step 4: Generate C++ source file
-    resman::ResCppSrcGenerator srcGen;
-    srcGen.setResourceInfo(resources)
-          .setOutputCppDir("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/cpp_src")
-          .setResSearchPath("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test");
-
-    if (!srcGen.run()) {
-        std::cerr << "❌ Failed to generate C++ source files.\n";
-        return 1;
-    }
-    std::cout << "✅ Successfully generated C++ source files.\n";
-    
-    // Step 5: Compile to object file
-    resman::ResObjGenerator objGen;
-    objGen.setInputCppDir("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/cpp_src")
-          .setWorkingDir("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/build")
-          .setOutputObj("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/resources.obj")
-          .setClangPath("clang++") // system clang++ in PATH
-          .setLlvmAsPath("llvm-as") // system llvm-as in PATH
-          .setLlvmLinkPath("llvm-link") // system llvm-link in PATH
-          .setLlcPath("llc") // system llc in PATH
-          .setTargetTriple("x86_64-pc-windows-msvc")
-          .addIncludePath("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/include");
-
-    if (!objGen.run()) {
-        std::cerr << "❌ Failed to generate object file.\n";
-        return 1;
-    }
-    std::cout << "✅ Successfully generated object file: resources.obj\n";
-
-    return 0;
 }

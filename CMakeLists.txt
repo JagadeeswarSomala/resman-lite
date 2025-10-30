@@ -8,10 +8,12 @@ add_executable(${PROJECT_NAME}
     src/ResASTJsonParser.cpp
     src/ResCppSrcGenerator.cpp
     src/ResObjGenerator.cpp
+    src/ResBuildOrchestrator.cpp
 )
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/submodules/json/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/submodules/argparse/include
 )

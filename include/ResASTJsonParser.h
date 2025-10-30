@@ -22,7 +22,7 @@ namespace resman
         bool run();
 
         // getters
-        const std::vector<ResourceInfo>& getResources() const noexcept { return mResources; }
+        const std::vector<ResourceInfo>& getResInfo() const noexcept { return mResources; }
 
         // for debugging
         void printSummary() const;
