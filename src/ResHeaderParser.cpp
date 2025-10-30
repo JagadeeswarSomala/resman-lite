@@ -9,7 +9,6 @@ namespace fs = std::filesystem;
 
 namespace resman
 {
-
     ResHeaderParser& ResHeaderParser::setClangPath(const std::string& path)
     {
         mClangPath = path;

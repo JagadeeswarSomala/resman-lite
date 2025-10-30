@@ -6,6 +6,8 @@ add_executable(${PROJECT_NAME}
     src/main.cpp
     src/ResHeaderParser.cpp
     src/ResASTJsonParser.cpp
+    src/ResCppSrcGenerator.cpp
+    src/ResObjGenerator.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

@@ -89,7 +89,12 @@ namespace resman
                             {
                                 if (grandchild.value("kind", "") == "StringLiteral")
                                 {
-                                    info.resFilepath = grandchild.value("value", "");
+                                    std::string rawValue = grandchild.value("value", "");
+                                    // Remove wrapping quotes if present
+                                    if (rawValue.size() >= 2 && rawValue.front() == '"' && rawValue.back() == '"')
+                                        rawValue = rawValue.substr(1, rawValue.size() - 2);
+
+                                    info.resFilepath = rawValue;
                                     break;
                                 }
                             }

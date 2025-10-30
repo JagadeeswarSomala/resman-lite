@@ -1,5 +1,8 @@
 #include "ResHeaderParser.h"
 #include "ResASTJsonParser.h"
+#include "ResCppSrcGenerator.h"
+#include "ResObjGenerator.h"
+
 #include <iostream>
 
 int main()
@@ -46,6 +49,36 @@ int main()
                   << "\n    Type: " << r.resType
                   << "\n    File: " << r.resFilepath << "\n\n";
     }
+
+    // Step 4: Generate C++ source file
+    resman::ResCppSrcGenerator srcGen;
+    srcGen.setResourceInfo(resources)
+          .setOutputCppDir("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/cpp_src")
+          .setResSearchPath("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test");
+
+    if (!srcGen.run()) {
+        std::cerr << "❌ Failed to generate C++ source files.\n";
+        return 1;
+    }
+    std::cout << "✅ Successfully generated C++ source files.\n";
+    
+    // Step 5: Compile to object file
+    resman::ResObjGenerator objGen;
+    objGen.setInputCppDir("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/cpp_src")
+          .setWorkingDir("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/build")
+          .setOutputObj("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/test/resources.obj")
+          .setClangPath("clang++") // system clang++ in PATH
+          .setLlvmAsPath("llvm-as") // system llvm-as in PATH
+          .setLlvmLinkPath("llvm-link") // system llvm-link in PATH
+          .setLlcPath("llc") // system llc in PATH
+          .setTargetTriple("x86_64-pc-windows-msvc")
+          .addIncludePath("C:/Users/jsoma/OneDrive/Desktop/repo/resman-lite/include");
+
+    if (!objGen.run()) {
+        std::cerr << "❌ Failed to generate object file.\n";
+        return 1;
+    }
+    std::cout << "✅ Successfully generated object file: resources.obj\n";
 
     return 0;
 }
